@@ -20,9 +20,13 @@ package org.pentaho.platform.dataaccess.datasource.wizard.service.impl;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.pentaho.gwt.widgets.client.dialogs.MessageDialogBox;
 import org.pentaho.gwt.widgets.client.utils.NameUtils;
 import org.pentaho.gwt.widgets.login.client.AuthenticatedGwtServiceUtil;
 import org.pentaho.gwt.widgets.login.client.IAuthenticatedGwtCommand;
+import org.pentaho.mantle.client.csrf.CsrfUtil;
+import org.pentaho.mantle.client.csrf.JsCsrfToken;
+import org.pentaho.mantle.client.messages.Messages;
 import org.pentaho.platform.dataaccess.datasource.IDatasourceInfo;
 import org.pentaho.platform.dataaccess.datasource.ui.service.DSWUIDatasourceService;
 import org.pentaho.platform.dataaccess.datasource.ui.service.MetadataUIDatasourceService;
@@ -283,7 +287,41 @@ public class DatasourceServiceManagerGwtImpl implements IXulAsyncDatasourceServi
       removeURL = null;
     }
 
-    AuthenticatedGwtServiceUtil.invokeCommand( new IAuthenticatedGwtCommand<Boolean>() {
+    CsrfUtil.getCsrfToken( removeURL, new AsyncCallback<JsCsrfToken>() {
+
+      public void onFailure( Throwable caught ) {
+        Window.alert(caught.getMessage());
+      }
+
+      public void onSuccess( JsCsrfToken token ) {
+
+        RequestBuilder requestBuilder = new RequestBuilder(RequestBuilder.GET, removeURL);
+        requestBuilder.setHeader("If-Modified-Since", "01 Jan 1970 00:00:00 GMT");
+        requestBuilder.setHeader("accept", "text/plain");
+        if (token != null) {
+          requestBuilder.setHeader(token.getHeader(), token.getToken());
+        }
+        try {
+          requestBuilder.sendRequest(null, new RequestCallback() {
+
+            public void onError(Request request, Throwable e) {
+              XulServiceCallback<Boolean> responseCallback = (XulServiceCallback<Boolean>) xulCallback;
+              responseCallback.error( e.getLocalizedMessage(), e );
+            }
+
+            public void onResponseReceived(Request request, Response response) {
+              XulServiceCallback<Boolean> responseCallback = (XulServiceCallback<Boolean>) xulCallback;
+              responseCallback.success( response.getStatusCode() == Response.SC_OK );
+            }
+          });
+        } catch (RequestException e) {
+          XulServiceCallback<Boolean> responseCallback = (XulServiceCallback<Boolean>) xulCallback;
+          responseCallback.error( e.getLocalizedMessage(), e );
+        }
+      }
+    } );
+
+    /*AuthenticatedGwtServiceUtil.invokeCommand( new IAuthenticatedGwtCommand<Boolean>() {
       public void execute( final AsyncCallback<Boolean> callback ) {
         RequestBuilder requestBuilder = new RequestBuilder( RequestBuilder.POST, removeURL );
         try {
@@ -315,6 +353,6 @@ public class DatasourceServiceManagerGwtImpl implements IXulAsyncDatasourceServi
         XulServiceCallback<Boolean> responseCallback = (XulServiceCallback<Boolean>) xulCallback;
         responseCallback.success( arg );
       }
-    } );
+    } );*/
   }
 }
