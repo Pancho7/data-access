@@ -268,6 +268,9 @@ public class DatasourceServiceManagerGwtImpl implements IXulAsyncDatasourceServi
     Window.open( exportURL, "_new", "" );
   }
 
+  final native void consoleLog( String message) /*-{
+    console.log( "me:" + message );
+  }-*/;
   /* (non-Javadoc)
    * @see org.pentaho.platform.dataaccess.datasource.wizard.service.IXulAsyncDatasourceServiceManager#remove(org
    * .pentaho.platform.dataaccess.datasource.IDatasourceInfo)
@@ -276,7 +279,7 @@ public class DatasourceServiceManagerGwtImpl implements IXulAsyncDatasourceServi
   public void remove( IDatasourceInfo dsInfo, final Object xulCallback ) {
     final String removeURL;
     String datasourceId = NameUtils.URLEncode( dsInfo.getId() );
-
+    consoleLog( "JM - Remove " + datasourceId );
     if ( dsInfo.getType() == MetadataUIDatasourceService.TYPE ) {
       removeURL = getWebAppRoot() + "plugin/data-access/api/datasource/metadata/" + datasourceId + "/remove";
     } else if ( dsInfo.getType() == MondrianUIDatasourceService.TYPE ) {
@@ -287,15 +290,17 @@ public class DatasourceServiceManagerGwtImpl implements IXulAsyncDatasourceServi
       removeURL = null;
     }
 
+    /*Versao Ricardo
     CsrfUtil.getCsrfToken( removeURL, new AsyncCallback<JsCsrfToken>() {
 
       public void onFailure( Throwable caught ) {
         Window.alert(caught.getMessage());
       }
 
+
       public void onSuccess( JsCsrfToken token ) {
 
-        RequestBuilder requestBuilder = new RequestBuilder(RequestBuilder.GET, removeURL);
+        RequestBuilder requestBuilder = new RequestBuilder(RequestBuilder.POST, removeURL);
         requestBuilder.setHeader("If-Modified-Since", "01 Jan 1970 00:00:00 GMT");
         requestBuilder.setHeader("accept", "text/plain");
         if (token != null) {
@@ -320,8 +325,62 @@ public class DatasourceServiceManagerGwtImpl implements IXulAsyncDatasourceServi
         }
       }
     } );
+  /*Versao JMarcos*/
 
-    /*AuthenticatedGwtServiceUtil.invokeCommand( new IAuthenticatedGwtCommand<Boolean>() {
+    CsrfUtil.getCsrfToken( removeURL, new AsyncCallback<JsCsrfToken>() {
+
+      public void onFailure( Throwable caught ) {
+        consoleLog("jm" + caught.getMessage());
+      }
+
+      public void onSuccess( final JsCsrfToken token ) {
+        consoleLog("jm0");
+        AuthenticatedGwtServiceUtil.invokeCommand( new IAuthenticatedGwtCommand<Boolean>() {
+          public void execute( final AsyncCallback<Boolean> callback ) {
+            RequestBuilder requestBuilder = new RequestBuilder( RequestBuilder.POST, removeURL );
+            try {
+              consoleLog("jm00");
+              if (token != null) {
+                consoleLog("jm01");
+                requestBuilder.setHeader(token.getHeader(), token.getToken());
+              }
+              requestBuilder.sendRequest( null, new RequestCallback() {
+                @Override
+                public void onError( Request request, Throwable exception ) {
+                  consoleLog("jm1");
+                  callback.onFailure( exception );
+                }
+
+                @Override
+                public void onResponseReceived( Request request, Response response ) {
+                  consoleLog("jm2" + response.getStatusCode());
+                  callback.onSuccess( response.getStatusCode() == Response.SC_OK );
+                }
+
+              } );
+            } catch ( RequestException e ) {
+              consoleLog("jm9" +  e.getLocalizedMessage());
+              XulServiceCallback<Boolean> responseCallback = (XulServiceCallback<Boolean>) xulCallback;
+              responseCallback.error( e.getLocalizedMessage(), e );
+            }
+          }
+        }, new AsyncCallback<Boolean>() {
+
+          public void onFailure( Throwable e ) {
+            XulServiceCallback<Boolean> responseCallback = (XulServiceCallback<Boolean>) xulCallback;
+            responseCallback.error( e.getLocalizedMessage(), e );
+          }
+
+          public void onSuccess( Boolean arg ) {
+            XulServiceCallback<Boolean> responseCallback = (XulServiceCallback<Boolean>) xulCallback;
+            responseCallback.success( arg );
+          }
+        } );
+      }
+    } );
+
+ /*VERSAO ANTIGO
+    AuthenticatedGwtServiceUtil.invokeCommand( new IAuthenticatedGwtCommand<Boolean>() {
       public void execute( final AsyncCallback<Boolean> callback ) {
         RequestBuilder requestBuilder = new RequestBuilder( RequestBuilder.POST, removeURL );
         try {
